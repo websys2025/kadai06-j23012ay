@@ -60,7 +60,6 @@ for pokemon_name in pokemon_names:
 
 print("\n" + "=" * 50)
 
-# DataFrameに変換して表示
 if pokemon_data:
     df = pd.DataFrame(pokemon_data)
     
