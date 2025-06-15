@@ -1,6 +1,6 @@
 import requests
 
-APP_ID = "ここに自分のアプリケーションIDを書く"
+APP_ID = "130221fbc2d23839417235bfc7fb4f8b5d50790f"
 API_URL  = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
 
 params = {
