@@ -1,67 +1,94 @@
 import requests
 import pandas as pd
 
-APP_ID = "ここに自分のアプリケーションIDを書く"
-API_URL  = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
 
-params = {
-    "appId": APP_ID,
-    "statsDataId":"0000020201",
-    "cdArea":"12101,12102,12103,12104,12105,12106",
-    "cdCat01": "A1101",
-    "metaGetFlg":"Y",
-    "cntGetFlg":"N",
-    "explanationGetFlg":"Y",
-    "annotationGetFlg":"Y",
-    "sectionHeaderFlg":"1",
-    "replaceSpChars":"0",
-    "lang": "J"  # 日本語を指定
-}
+#課題6-2: オープンデータAPIを使ったポケモンデータ取得プログラム
 
-response = requests.get(API_URL, params=params)
-# Process the response
-data = response.json()
+#オープンデータの名前と概要：
+#PokéAPI (RESTful Pokémon API)
+#- 全ポケモンの詳細情報を提供する無料のRESTful API
+#- ポケモンの基本情報、ステータス、タイプ、アビリティなどを取得可能
+#認証不要で完全無料で利用可能
+#エンドポイント：
+# https://pokeapi.co/api/v2/pokemon/{ポケモン名またはID}  
+#機能：
+#指定したポケモンの詳細データをJSON形式で取得
+#ポケモンの基本ステータス（HP、攻撃力、防御力など）を取得
+#タイプ、身長、体重、アビリティなどの情報を取得
+# 使い方：
+#  1. APIキー不要で即座に利用開始
+#  2. ポケモン名リストを指定
+#  3. 各ポケモンのAPIを呼び出し
+#  4. JSONデータを解析してDataFrameに変換
+#  5. ポケモンの基本情報を表示
 
-# 統計データからデータ部取得
-values = data['GET_STATS_DATA']['STATISTICAL_DATA']['DATA_INF']['VALUE']
 
-# JSONからDataFrameを作成
-df = pd.DataFrame(values)
+# PokéAPI エンドポイント
+API_URL = "https://pokeapi.co/api/v2/pokemon"
 
-# メタ情報取得
-meta_info = data['GET_STATS_DATA']['STATISTICAL_DATA']['CLASS_INF']['CLASS_OBJ']
+# 取得したいポケモンのリスト
+pokemon_names = ["pikachu", "ditto", "charizard", "blastoise", "venusaur"]
 
-# 統計データのカテゴリ要素をID(数字の羅列)から、意味のある名称に変更する
-for class_obj in meta_info:
+pokemon_data = []
 
-    # メタ情報の「@id」の先頭に'@'を付与した文字列が、統計データの列名と対応している
-    column_name = '@' + class_obj['@id']
+print("PokéAPI ポケモンデータ取得プログラム")
+print("=" * 50)
 
-    # 統計データの列名を「@code」から「@name」に置換するディクショナリを作成
-    id_to_name_dict = {}
-    if isinstance(class_obj['CLASS'], list):
-        for obj in class_obj['CLASS']:
-            id_to_name_dict[obj['@code']] = obj['@name']
-    else:
-        id_to_name_dict[class_obj['CLASS']['@code']] = class_obj['CLASS']['@name']
+for pokemon_name in pokemon_names:
+    try:
+        print(f"{pokemon_name}のデータを取得中...")
+        
+        response = requests.get(f"{API_URL}/{pokemon_name}")
+        data = response.json()
+        
+        pokemon_info = {
+            "名前": data["name"].capitalize(),
+            "ID": data["id"],
+            "身長": f"{data['height'] / 10}m",  
+            "体重": f"{data['weight'] / 10}kg",  
+            "HP": data["stats"][0]["base_stat"],
+            "攻撃": data["stats"][1]["base_stat"],
+            "防御": data["stats"][2]["base_stat"],
+            "タイプ": ", ".join([t["type"]["name"] for t in data["types"]])
+        }
+        
+        pokemon_data.append(pokemon_info)
+        print(f"  → 取得完了: {pokemon_info['名前']} (ID: {pokemon_info['ID']})")
+        
+    except Exception as e:
+        print(f"  → {pokemon_name}のデータ取得エラー: {e}")
 
-    # ディクショナリを用いて、指定した列の要素を置換
-    df[column_name] = df[column_name].replace(id_to_name_dict)
+print("\n" + "=" * 50)
 
-# 統計データの列名を変換するためのディクショナリを作成
-col_replace_dict = {'@unit': '単位', '$': '値'}
-for class_obj in meta_info:
-    org_col = '@' + class_obj['@id']
-    new_col = class_obj['@name']
-    col_replace_dict[org_col] = new_col
-
-# ディクショナリに従って、列名を置換する
-new_columns = []
-for col in df.columns:
-    if col in col_replace_dict:
-        new_columns.append(col_replace_dict[col])
-    else:
-        new_columns.append(col)
-
-df.columns = new_columns
-print(df)
+# DataFrameに変換して表示
+if pokemon_data:
+    df = pd.DataFrame(pokemon_data)
+    
+    col_replace_dict = {
+        "名前": "ポケモン名",
+        "ID": "図鑑No",
+        "身長": "身長",
+        "体重": "体重", 
+        "HP": "HP",
+        "攻撃": "攻撃力",
+        "防御": "防御力",
+        "タイプ": "タイプ"
+    }
+    
+    new_columns = []
+    for col in df.columns:
+        if col in col_replace_dict:
+            new_columns.append(col_replace_dict[col])
+        else:
+            new_columns.append(col)
+    df.columns = new_columns
+    
+    print("取得結果:")
+    print(df.to_string(index=False))
+    
+    print(f"\n■ 取得したポケモン数: {len(df)}匹")
+    print(f"■ 平均HP: {df['HP'].mean():.1f}")
+    print(f"■ 最高攻撃力: {df['攻撃力'].max()}")
+    
+else:
+    print("データを取得できませんでした。")
